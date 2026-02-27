@@ -1,5 +1,6 @@
 import bcrypt from "bcrypt";
 import teacherModel from "../../model/teacher model.js";
+import examModel from "../../model/exam model.js";
 import localAuth from "../../utils/localAuth utils.js";
 import tokenAndCookies from "../../utils/tokenAndCookies utils.js";
 
@@ -68,14 +69,31 @@ export default class teacherAuth {
     // read account
     static async read(req, res) {
 
-        // cheak if the user eisit if yes return data
-        const user = await teacherModel.findById(req.token.userId).select("-password");
+        // get teacher
+        const user = await teacherModel
+            .findById(req.token.userId)
+            .select("-password");
+
         if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
-        // if all ok return ok
+        // get classrooms created by teacher
+        const classrooms = await examModel
+            .find({ creatorId: user._id })
+            .select("name")
+            .lean();
+
+        // format into key-value pair
+        const examClassrooms = classrooms.map(c => ({
+            id: c._id,
+            name: c.name
+        }));
+
         return res.status(200).json({
             success: true,
-            data: user
+            data: {
+                teacher: user,
+                classrooms: examClassrooms
+            }
         });
     }
 
@@ -84,25 +102,25 @@ export default class teacherAuth {
 
         const { targetField, newData } = req.body;
         // Validate input presence
-        if (!targetField || newData === undefined) { return res.status(400).json({ success: false, message: "targetField and newData are required" })}
+        if (!targetField || newData === undefined) { return res.status(400).json({ success: false, message: "targetField and newData are required" }) }
 
         // Whitelist allowed fields
         const allowedFields = ["name", "email", "department", "password"];
-        if (!allowedFields.includes(targetField)) { return res.status(403).json({ success: false, message: "Field update not allowed" })}
+        if (!allowedFields.includes(targetField)) { return res.status(403).json({ success: false, message: "Field update not allowed" }) }
 
         let updateValue = newData;
 
         // If updating password hash it
-        if (targetField === "password") { updateValue = await bcrypt.hash(newData, 10)}
+        if (targetField === "password") { updateValue = await bcrypt.hash(newData, 10) }
 
         // Perform update
         const updatedUser = await teacherModel.findByIdAndUpdate(req.token.userId,
-                { [targetField]: updateValue },
-                { new: true }
-            )
+            { [targetField]: updateValue },
+            { new: true }
+        )
             .select("-password");
 
-        if (!updatedUser) { return res.status(404).json({ success: false, message: "User not found" })}
+        if (!updatedUser) { return res.status(404).json({ success: false, message: "User not found" }) }
 
         return res.status(200).json({
             success: true,

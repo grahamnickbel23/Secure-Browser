@@ -15,6 +15,9 @@ route.post("/login", asyncHandeller(studentAuth.login, "logging in student accou
 
 route.post("/logout", verifyJWT, asyncHandeller(studentAuth.logout, "logging out student account"));
 
+// admin only
+route.get("/getall", verifyJWT, asyncHandeller(studentAuth.getAll, "get all student data"));
+
 route.post("/profile", verifyJWT, asyncHandeller(studentAuth.read, "reading student profile"));
 
 // admin only

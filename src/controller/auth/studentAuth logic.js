@@ -76,7 +76,21 @@ export default class studentAuth {
         });
     }
 
-    // read account
+    // get all student data at once
+    static async getAll(req, res) {
+
+        const students = await studentModel
+            .find()
+            .select("-password");
+
+        return res.status(200).json({
+            success: true,
+            count: students.length,
+            data: students
+        });
+    }
+
+    // read specific account details
     static async read(req, res) {
 
         // get the incoming info
@@ -94,35 +108,30 @@ export default class studentAuth {
 
         // get the data abd verlidate it
         const { targetField, newData, email } = req.body;
-        if (!targetField || newData === undefined || !email) { return res.status(400).json({ success: false, message: "targetField and newVal are required" })}
+        if (!targetField || newData === undefined || !email) { return res.status(400).json({ success: false, message: "targetField and newVal are required" }) }
 
         // cheak if the student exisit 
         req.target = 'student';
         const userInfo = await localAuth.doesUserExisit(req, { email });
-        if (!userInfo) return res.status(404).json({ success: false, message: `user doesn't exisit`});
+        if (!userInfo) return res.status(404).json({ success: false, message: `user doesn't exisit` });
 
         // Whitelist allowed fields
-        const allowedFields = [
-            "name",
-            "email",
-            "department",
-            "password"
-        ];
+        const allowedFields = ["name", "email", "department", "password"];
 
-        if (!allowedFields.includes(targetField)) { return res.status(403).json({ success: false, message: "Field update not allowed" })}
+        if (!allowedFields.includes(targetField)) { return res.status(403).json({ success: false, message: "Field update not allowed" }) }
 
         let valueToUpdate = newData;
 
         // hash it if it is password
-        if (targetField === "password") { valueToUpdate = await bcrypt.hash(newData, 10)}
+        if (targetField === "password") { valueToUpdate = await bcrypt.hash(newData, 10) }
 
-        const updatedUser = await studentModel.findByIdAndUpdate( userInfo._id,
-                { [targetField]: valueToUpdate },
-                { new: true }
-            )
+        const updatedUser = await studentModel.findByIdAndUpdate(userInfo._id,
+            { [targetField]: valueToUpdate },
+            { new: true }
+        )
             .select("-password");
 
-        if (!updatedUser) { return res.status(404).json({success: false, message: "Student not found" })}
+        if (!updatedUser) { return res.status(404).json({ success: false, message: "Student not found" }) }
 
         return res.status(200).json({
             success: true,
@@ -137,7 +146,7 @@ export default class studentAuth {
         const { email } = req.body;
         req.target = 'student';
         const userInfo = await localAuth.doesUserExisit(req, { email });
-        if (!userInfo) return res.status(404).json({ success: false, message: `user doesn't exist`});
+        if (!userInfo) return res.status(404).json({ success: false, message: `user doesn't exist` });
         const deleted = await studentModel.findByIdAndDelete(userInfo._id);
 
         if (!deleted)
