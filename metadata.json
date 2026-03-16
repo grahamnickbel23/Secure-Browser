@@ -1,0 +1,5 @@
+{
+  "name": "UEM Exam Portal",
+  "description": "Exam management system for UEM/IEM with teacher dashboard, exam creation, and student monitoring.",
+  "requestFramePermissions": []
+}
