@@ -1,0 +1,5 @@
+{
+  "name": "Exam Controller Portal",
+  "description": "A frontend application for managing exams, including login, dashboard, exam creation, and student monitoring.",
+  "requestFramePermissions": []
+}
