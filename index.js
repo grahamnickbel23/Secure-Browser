@@ -2,35 +2,58 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import express from 'express';
+import http from "http";
+import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import connectDB from './connectDB.js';
+
+import connectMongoDB from './connectMongo.js';
+
 import studentRoute from './src/router/student route.js'
 import teacherRoute from './src/router/teacher route.js'
 import examRoute from './src/router/exam route.js'
+import searchRoute from './src/router/search route.js'
+import agentRoute from './src/router/agent route.js'
+
+import initWebSocket from "./webSocket.js"
 
 const app = express();
-
 const PORT = process.env.PORT;
 
-// get basic middelewere
+// middleware
 app.use(express.json());
 app.use(cookieParser());
 
-// connect db
-connectDB();
+app.use(cors({
+  origin: true,
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
 
-// get the api route
+// connect database
+connectMongoDB();
+
+// routes
 app.use("/student", studentRoute);
 app.use("/teacher", teacherRoute);
 app.use("/exam", examRoute);
+app.use("/search", searchRoute);
+app.use("/agent", agentRoute);
 
 app.get("/test", (req, res) => {
     return res.status(200).json({
-        success: true, 
+        success: true,
         message: `working`
     })
-})
+});
 
-app.listen(PORT, () => {
-    console.log(`server is running at port: ${PORT}`)
-})
+// create HTTP server
+const server = http.createServer(app);
+
+// initialize websocket
+initWebSocket(server);
+
+// start server
+server.listen(PORT, () => {
+    console.log(`server running at port ${PORT}`)
+});

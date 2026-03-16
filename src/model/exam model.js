@@ -12,6 +12,8 @@ const examSchema = new mongoose.Schema({
         required: true
     },
 
+    description: String,
+
     code: {
         type: Number,
         min: 100000,
@@ -21,7 +23,7 @@ const examSchema = new mongoose.Schema({
 
     isActive: {
         type: Boolean,
-        default: true
+        default: false
     },
 
     examTime: {

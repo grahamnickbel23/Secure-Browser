@@ -45,6 +45,8 @@ export default class teacherAuth {
         // if all ok send acess token
         await tokenAndCookies.acessTokenAndCookies(userInfo, req.target, res);
 
+        console.log(`login api called`);
+
         // if all ok return ok
         return res.status(200).json({
             success: true,
@@ -59,6 +61,8 @@ export default class teacherAuth {
             httpOnly: true,
             sameSite: "Lax"
         });
+
+        console.log(`logout api called`);
 
         return res.status(200).json({
             success: true,
@@ -79,14 +83,19 @@ export default class teacherAuth {
         // get classrooms created by teacher
         const classrooms = await examModel
             .find({ creatorId: user._id })
-            .select("name")
+            .select("name duration isActive examTime")
             .lean();
 
         // format into key-value pair
         const examClassrooms = classrooms.map(c => ({
             id: c._id,
-            name: c.name
+            name: c.name,
+            time: c.examTime,
+            activity: c.isActive,
+            duration: c.duration
         }));
+
+        console.log(`profile api called`);
 
         return res.status(200).json({
             success: true,
@@ -121,6 +130,8 @@ export default class teacherAuth {
             .select("-password");
 
         if (!updatedUser) { return res.status(404).json({ success: false, message: "User not found" }) }
+
+        console.log(`update api called`)
 
         return res.status(200).json({
             success: true,
