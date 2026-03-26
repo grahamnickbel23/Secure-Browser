@@ -1,7 +1,10 @@
 import crypto from "crypto";
+import fs from "fs";
+import path from "path";
 import redisClient from "../../../connectRedis.js";
 import db from "../../../connectSql.js";
 import { SQL } from "../../../sqlLoad.js";
+import { broadcastToExam } from "../../../webSocket.js";
 
 export default class session {
 
@@ -148,6 +151,91 @@ export default class session {
         });
     }
 
+    // method to store screenshot during block
+    static async uploadScreenshot(req, res) {
+
+        // get the student info
+        const { examId, studentId } = req.body;
+
+        // error for missing fields
+        if (!examId || !studentId || !req.file) return res.status(400).json({ success: false, message: "Missing required fields" });
+
+        // get internal exam id using exam code
+        const exam = await new Promise((resolve, reject) => {
+
+            db.get(
+                SQL.getExamIdByCode,
+                [examId],
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                }
+            );
+
+        });
+
+        // return erro if not ok
+        if (!exam) return res.status(404).json({ success: false, message: "Exam not found" });
+
+        const student = await new Promise((resolve, reject) => {
+            db.get(
+                SQL.verifyStudent,   // your query
+                [studentId, exam.id],
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                }
+            );
+        });
+
+        if (!student) return res.status(403).json({ success: false, message: "Student not associated with this exam" });
+
+        // Folder structure: /screenshots/<examId>/
+        const dir = path.join("screenshots", exam.id.toString());
+
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+
+        const fileName = `${studentId}_${Date.now()}.png`;
+        const filePath = path.join(dir, fileName);
+
+        // Save file to disk
+        fs.writeFileSync(filePath, req.file.buffer);
+
+        // Save metadata to DB
+        await new Promise((resolve, reject) => {
+            db.run(
+                SQL.screenshotInsert,
+                [studentId, exam.id, filePath, Date.now()],
+                function (err) {
+                    if (err) reject(err);
+                    else resolve();
+                }
+            );
+        });
+
+        // Trigger WebSocket notification to monitoring teachers
+        broadcastToExam(examId, {
+            type: "screenshot_recorded",
+            data: {
+                studentId,
+                studentName: student.name,
+                examId: exam.id,
+                filePath,
+                imageUrl: `/screenshots/${exam.id}/${fileName}`, // Relative URL for static serving
+                image: req.file.buffer.toString("base64"), // Include base64 image data
+                createdAt: Date.now()
+            }
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Screenshot saved",
+            path: filePath
+        });
+    }
+
     // method to unblock student
     static async unblock(req, res) {
 
@@ -206,6 +294,66 @@ export default class session {
             examCode: examId,
             studentId,
             isBlocked: false
+        });
+    }
+
+    // method to get screenshot links
+    static async listScreenshots(req, res) {
+
+        // get the info from the user
+        const { examId, studentId } = req.body;
+        if (!examId || !studentId) return res.status(400).json({ success: false, message: "examId and studentId are required" });
+
+        // get internal exam id using exam code
+        const exam = await new Promise((resolve, reject) => {
+
+            db.get(
+                SQL.getExamIdByCode,
+                [examId],
+                (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                }
+            );
+
+        });
+
+        // return error if exam not found
+        if (!exam)
+            return res.status(404).json({
+                success: false,
+                message: "Exam not found"
+            });
+
+        // query screenshots
+        const screenshots = await new Promise((resolve, reject) => {
+            db.all(
+                SQL.readScreenshotsByStudent,
+                [studentId.toString(), exam.id],
+                (err, rows) => {
+                    if (err) reject(err);
+                    else resolve(rows);
+                }
+            );
+        });
+
+        const result = screenshots.map(s => {
+            const fileName = path.basename(s.filePath);
+            
+            return {
+                studentId,
+                examId: exam.id,
+                filePath: s.filePath,
+                imageUrl: `/screenshots/${exam.id}/${fileName}`,
+                createdAt: s.createdAt
+            };
+        });
+
+        return res.status(200).json({
+            success: true,
+            examCode: examId,
+            studentId,
+            screenshots: result
         });
     }
 }

@@ -1,4 +1,6 @@
 import examModel from "../../model/exam model.js";
+import fs from "fs";
+import path from "path";
 import db from "../../../connectSql.js";
 import { SQL } from "../../../sqlLoad.js";
 import redisClient from "../../../connectRedis.js";
@@ -150,6 +152,21 @@ export default class monitoring {
         await new Promise((resolve, reject) => {
             db.run(
                 SQL.deleteExam,
+                [examInfo._id.toString()],
+                err => err ? reject(err) : resolve()
+            );
+        });
+
+        // Cleanup screenshots filesystem
+        const screenshotDir = path.join("screenshots", examInfo._id.toString());
+        if (fs.existsSync(screenshotDir)) {
+            fs.rmSync(screenshotDir, { recursive: true, force: true });
+        }
+
+        // Delete screenshot records from local db
+        await new Promise((resolve, reject) => {
+            db.run(
+                SQL.deleteScreenshotsByExam,
                 [examInfo._id.toString()],
                 err => err ? reject(err) : resolve()
             );

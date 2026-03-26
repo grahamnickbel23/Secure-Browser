@@ -1,6 +1,26 @@
 import { WebSocketServer } from "ws";
 import db from "./connectSql.js";
 
+// Registry to store connections by examCode
+const clientRegistry = new Map();
+
+/**
+ * Send a message to all teachers monitoring a specific exam.
+ * @param {string|number} examCode 
+ * @param {object} data 
+ */
+export const broadcastToExam = (examCode, data) => {
+    const clients = clientRegistry.get(examCode.toString());
+    if (clients) {
+        const message = JSON.stringify(data);
+        clients.forEach(ws => {
+            if (ws.readyState === 1) { // 1 = OPEN
+                ws.send(message);
+            }
+        });
+    }
+};
+
 export default function initWebSocket(server) {
 
     const wss = new WebSocketServer({ server, path: "/monitoring" });
@@ -12,7 +32,7 @@ export default function initWebSocket(server) {
             message: "websocket connected successfully, awaiting join message"
         }));
 
-        let examCode = null;
+        let currentExamCode = null;
         let interval = null;
 
         ws.on("message", (message) => {
@@ -20,8 +40,16 @@ export default function initWebSocket(server) {
                 const parsedMsg = JSON.parse(message.toString());
 
                 if (parsedMsg.type === "join" && parsedMsg.examCode) {
-                    examCode = parsedMsg.examCode;
-                    console.log(`teacher joined exam ${examCode} via JSON input`);
+                    const examCodeStr = parsedMsg.examCode.toString();
+                    currentExamCode = examCodeStr;
+                    
+                    console.log(`teacher joined exam ${examCodeStr} via JSON input`);
+
+                    // Register client
+                    if (!clientRegistry.has(examCodeStr)) {
+                        clientRegistry.set(examCodeStr, new Set());
+                    }
+                    clientRegistry.get(examCodeStr).add(ws);
 
                     ws.send(JSON.stringify({
                         type: "connected",
@@ -35,7 +63,7 @@ export default function initWebSocket(server) {
                     interval = setInterval(() => {
 
                         // Get Exam ID locally for the given code
-                        db.get('SELECT id, examTime, duration, isActive FROM exams WHERE code = ?', [examCode], (err, examRow) => {
+                        db.get('SELECT id, examTime, duration, isActive FROM exams WHERE code = ?', [examCodeStr], (err, examRow) => {
                             if (err) {
                                 console.error("WS DB exam error:", err);
                                 return;
@@ -83,8 +111,18 @@ export default function initWebSocket(server) {
         });
 
         ws.on("close", () => {
-            if (examCode) console.log(`teacher disconnected from exam ${examCode}`);
-            else console.log(`teacher connection closed`);
+            if (currentExamCode) {
+                console.log(`teacher disconnected from exam ${currentExamCode}`);
+                const clients = clientRegistry.get(currentExamCode);
+                if (clients) {
+                    clients.delete(ws);
+                    if (clients.size === 0) {
+                        clientRegistry.delete(currentExamCode);
+                    }
+                }
+            } else {
+                console.log(`teacher connection closed`);
+            }
             
             if (interval) clearInterval(interval);
         });

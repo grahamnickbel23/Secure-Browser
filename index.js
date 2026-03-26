@@ -30,6 +30,9 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
+// serve static files
+app.use('/screenshots', express.static('screenshots'));
+
 // connect database
 connectMongoDB();
 
