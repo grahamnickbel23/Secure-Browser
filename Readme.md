@@ -1,134 +1,105 @@
 # 🛡️ Secure Exam Browser System
 
-A controlled examination environment designed to prevent malpractice during online exams by enforcing strict application focus and monitoring student behavior.
+A controlled examination environment that prevents malpractice during online exams by enforcing strict application focus and monitoring student behavior in real time.
 
 ---
 
 ## 📌 Problem Statement
 
-In online examinations, one major challenge is ensuring that students do not:
+Online examinations face a critical challenge — ensuring students don't switch tabs or applications, access unauthorized resources, or leave the exam environment mid-session. This system solves that by locking students into a monitored browser where any attempt to leave triggers an automatic screenshot, a security violation report, and forced shutdown of the exam session.
 
-- Switch tabs or applications  
-- Access unauthorized resources  
-- Leave the exam environment  
+---
 
-This project solves that by creating a secure, monitored browser system where:
+## 🖥️ Screenshots
 
-- Students are locked into a controlled browser  
-- Any attempt to leave the exam triggers:
-  - Screenshot capture  
-  - Security violation report  
-  - Forced shutdown of the exam session  
+### Student Login
+<img src="images/student-login.png" width="800" alt="Student Login Screen"/>
+
+### Student Code View
+<img src="images/student-code.png" width="800" alt="Student Code"/>
+
+### Teacher Code View
+<img src="images/teacher-code.png" width="800" alt="Teacher Code"/>
+
+### Teacher Portal — Exam Management
+<img src="images/exam-management.png" width="800" alt="Exam Management"/>
+
+### Student Secure Browser (Blocking Active)
+<img src="images/student-blocking.png" width="800" alt="Student Blocking"/>
+
+### Student Blocking — Screenshot Capture in Action
+<img src="images/student-blocking-screenshot.png" width="800" alt="Student Blocking Screenshot"/>
 
 ---
 
 ## 🏗️ System Architecture
 
-The system is divided into three core components:
-
-### 1. Student Secure Browser (Electron App)
-- A custom browser built using Electron  
-- Runs in kiosk mode (full-screen, no OS access)  
-- Monitors focus and prevents app switching  
-
-### 2. Teacher Portal
-- Interface for:
-  - Registering students  
-  - Creating exams  
-  - Monitoring violations  
-
-### 3. Backend Server
-- Handles:
-  - Authentication  
-  - Exam session management  
-  - Receiving violation reports  
-  - Storing screenshots  
+The system is built around three core components. The **Student Secure Browser** is a custom Electron app that runs in kiosk mode (full-screen, no OS access) and continuously monitors application focus to prevent switching. The **Teacher Portal** provides an interface for registering students, creating exams, and monitoring security violations in real time. The **Backend Server** handles authentication, exam session management, violation reporting, and screenshot storage.
 
 ---
 
 ## 🔄 How the System Works
 
-1. Teacher creates exam and assigns students  
-2. Student logs into Secure Browser  
-3. Browser enters secure (kiosk) mode  
-4. During exam:
-   - If student stays → normal operation  
-   - If student leaves → violation is triggered  
+1. Teacher creates an exam and assigns students
+2. Student logs into the Secure Browser
+3. Browser enters secure kiosk mode — full-screen and locked
+4. During the exam, if the student stays focused, normal operation continues. If the student leaves the app, a violation is immediately triggered.
 
 ---
 
 ## 🔐 Core Security Mechanism
 
-### Focus Monitoring Logic
+The browser continuously listens for two window events — `blur` when the application loses focus (student left) and `focus` when it regains focus (student returned). When a blur event fires, a 1.5 second timer starts, a screenshot is captured, a violation report is sent to the server, and the exam session is forcefully shut down.
 
-The browser continuously listens for:
-
-- `blur` → app lost focus  
-- `focus` → app regained focus  
-
-### Violation Flow
-
----
-
-## ⏱️ Why a Timer?
-
-A 1.5 second delay is used to:
-
-- Avoid false triggers (accidental clicks)  
-- Allow screenshot capture  
-- Ensure network request completes  
+The 1.5 second delay exists to avoid false positives from accidental clicks, give enough time to capture a screenshot, and ensure the network violation request completes before shutdown.
 
 ---
 
 ## 📸 Screenshot Capture System
 
-Uses Electron APIs:
-
-- `desktopCapturer`  
-- `screen`  
-
-### Flow
+Built using native Electron APIs — `desktopCapturer` to capture the current screen and `screen` to retrieve display metadata. The screenshot is captured immediately after a blur event and attached to the violation report sent to the server.
 
 ---
 
 ## 🔁 IPC Communication
 
-Electron has two processes:
-
-- Main Process → system-level access  
-- Renderer Process → UI  
-
-IPC is used because:
-
-- Renderer cannot directly access system APIs  
-- Main process acts as a secure bridge  
+Electron runs two separate processes. The **Main Process** has system-level access (file system, screen capture, native APIs) while the **Renderer Process** handles UI rendering — what the student sees. IPC (Inter-Process Communication) bridges these two, since the renderer cannot directly access system APIs and the main process acts as a secure intermediary.
 
 ---
 
 ## 🧩 Key Components
 
-### `foregroundMonitor.cjs`
+**`foregroundMonitor.cjs`** detects when a student leaves the exam environment. It listens to `browser-window-blur` and `browser-window-focus` events — starting a shutdown timer on blur and cancelling it on focus.
 
-Responsibility: Detect if student leaves the exam
+**`blockApi.cjs`** handles all security violation logic. It captures a screenshot when possible and sends a structured violation event to the backend using a unified function for all violation types:
 
-- Listens to:
-  - `browser-window-blur`
-  - `browser-window-focus`
-
-- Triggers:
-  - Shutdown on blur  
-  - Cancel shutdown on focus  
+```js
+reportSecurityViolation(type, metadata, screenshotBuffer)
+```
 
 ---
 
-### `blockApi.cjs`
+## 🛠️ Tech Stack
 
-Responsibility: Handle security violations
+| Layer | Technology |
+|---|---|
+| Desktop App | Electron |
+| Frontend | HTML / CSS / JavaScript |
+| Backend | Node.js |
+| Screenshot | Electron `desktopCapturer` |
+| Communication | IPC (Electron) + REST API |
 
-- Captures screenshot (optional)  
-- Sends structured violation event  
+---
 
-Uses a unified function:
+## 📂 Project Structure
 
-```js
-reportSecurityViolation(...)
+```
+secure-browser/
+├── server-02/
+│   ├── images/              # Screenshots used in this README
+│   ├── foregroundMonitor.cjs
+│   ├── blockApi.cjs
+│   └── ...
+├── teacher-portal/
+└── README.md
+```
