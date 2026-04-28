@@ -15,10 +15,10 @@ Online examinations face a critical challenge — ensuring students don't switch
 ### Student Login
 <img src="images/student-login.png" width="800" alt="Student Login Screen"/>
 
-### Student Code View
+### Student side View
 <img src="images/student-code.png" width="800" alt="Student Code"/>
 
-### Teacher Code View
+### Teacher side View
 <img src="images/teacher-code.png" width="800" alt="Teacher Code"/>
 
 ### Teacher Portal — Exam Management
@@ -32,13 +32,13 @@ Online examinations face a critical challenge — ensuring students don't switch
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 The system is built around three core components. The **Student Secure Browser** is a custom Electron app that runs in kiosk mode (full-screen, no OS access) and continuously monitors application focus to prevent switching. The **Teacher Portal** provides an interface for registering students, creating exams, and monitoring security violations in real time. The **Backend Server** handles authentication, exam session management, violation reporting, and screenshot storage.
 
 ---
 
-## 🔄 How the System Works
+## How the System Works
 
 1. Teacher creates an exam and assigns students
 2. Student logs into the Secure Browser
@@ -47,7 +47,7 @@ The system is built around three core components. The **Student Secure Browser**
 
 ---
 
-## 🔐 Core Security Mechanism
+## Core Security Mechanism
 
 The browser continuously listens for two window events — `blur` when the application loses focus (student left) and `focus` when it regains focus (student returned). When a blur event fires, a 1.5 second timer starts, a screenshot is captured, a violation report is sent to the server, and the exam session is forcefully shut down.
 
@@ -55,19 +55,19 @@ The 1.5 second delay exists to avoid false positives from accidental clicks, giv
 
 ---
 
-## 📸 Screenshot Capture System
+## Screenshot Capture System
 
 Built using native Electron APIs — `desktopCapturer` to capture the current screen and `screen` to retrieve display metadata. The screenshot is captured immediately after a blur event and attached to the violation report sent to the server.
 
 ---
 
-## 🔁 IPC Communication
+## IPC Communication
 
 Electron runs two separate processes. The **Main Process** has system-level access (file system, screen capture, native APIs) while the **Renderer Process** handles UI rendering — what the student sees. IPC (Inter-Process Communication) bridges these two, since the renderer cannot directly access system APIs and the main process acts as a secure intermediary.
 
 ---
 
-## 🧩 Key Components
+## Key Components
 
 **`foregroundMonitor.cjs`** detects when a student leaves the exam environment. It listens to `browser-window-blur` and `browser-window-focus` events — starting a shutdown timer on blur and cancelling it on focus.
 
@@ -79,7 +79,7 @@ reportSecurityViolation(type, metadata, screenshotBuffer)
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |---|---|
@@ -88,18 +88,4 @@ reportSecurityViolation(type, metadata, screenshotBuffer)
 | Backend | Node.js |
 | Screenshot | Electron `desktopCapturer` |
 | Communication | IPC (Electron) + REST API |
-
----
-
-## 📂 Project Structure
-
-```
-secure-browser/
-├── server-02/
-│   ├── images/              # Screenshots used in this README
-│   ├── foregroundMonitor.cjs
-│   ├── blockApi.cjs
-│   └── ...
-├── teacher-portal/
-└── README.md
 ```
